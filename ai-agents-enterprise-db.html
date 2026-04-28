@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Agents — Enterprise Database Builder</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-info: #e6f1fb;
+    --text-primary: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-info: #185fa5;
+    --border-light: rgba(0,0,0,0.12);
+    --border-med: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font: -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c;
+      --bg-secondary: #2a2a28;
+      --bg-info: #042c53;
+      --text-primary: #e8e8e4;
+      --text-secondary: #888780;
+      --text-info: #85b7eb;
+      --border-light: rgba(255,255,255,0.1);
+      --border-med: rgba(255,255,255,0.2);
+    }
+  }
+  body { font-family: var(--font); background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+  .wrapper { width: 100%; max-width: 900px; }
+  .app { display: flex; height: 640px; border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-primary); }
+  .sidebar { width: 220px; border-right: 0.5px solid var(--border-light); display: flex; flex-direction: column; background: var(--bg-secondary); flex-shrink: 0; }
+  .sidebar-header { padding: 16px; border-bottom: 0.5px solid var(--border-light); }
+  .sidebar-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .sidebar-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .agent-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .agent-item { padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer; margin-bottom: 4px; border: 0.5px solid transparent; transition: background 0.15s; }
+  .agent-item:hover { background: var(--bg-primary); border-color: var(--border-light); }
+  .agent-item.active { background: var(--bg-primary); border-color: var(--border-med); }
+  .agent-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .agent-type { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .dot-green { background: #639922; }
+  .dot-amber { background: #ba7517; }
+  .dot-gray { background: #888780; }
+  .add-btn { margin: 8px; padding: 10px; border: 0.5px dashed var(--border-med); border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); cursor: pointer; text-align: center; background: transparent; font-family: var(--font); }
+  .add-btn:hover { background: var(--bg-primary); color: var(--text-primary); }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .toolbar { padding: 12px 16px; border-bottom: 0.5px solid var(--border-light); display: flex; align-items: center; gap: 12px; }
+  .toolbar-title { font-size: 14px; font-weight: 500; color: var(--text-primary); flex: 1; }
+  .badge { font-size: 11px; padding: 3px 8px; border-radius: 99px; font-weight: 500; }
+  .badge-green { background: #eaf3de; color: #3b6d11; }
+  .badge-amber { background: #faeeda; color: #854f0b; }
+  .badge-gray { background: var(--bg-secondary); color: var(--text-secondary); }
+  .run-btn { background: var(--text-primary); color: var(--bg-primary); border: none; border-radius: var(--radius-md); padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: var(--font); }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .tabs { display: flex; border-bottom: 0.5px solid var(--border-light); padding: 0 16px; }
+  .tab { font-size: 12px; padding: 10px 14px; cursor: pointer; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -0.5px; font-family: var(--font); background: none; border-top: none; border-left: none; border-right: none; }
+  .tab.active { color: var(--text-primary); border-bottom-color: var(--text-primary); font-weight: 500; }
+  .panel { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; }
+  .panel.active { display: flex; }
+  .section-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .field-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  input[type=text], select, textarea {
+    width: 100%; font-family: var(--font); font-size: 13px;
+    background: var(--bg-primary); color: var(--text-primary);
+    border: 0.5px solid var(--border-med); border-radius: var(--radius-md);
+    padding: 8px 10px; outline: none;
+  }
+  input[type=text]:focus, select:focus, textarea:focus { border-color: var(--text-secondary); }
+  textarea { height: 88px; resize: vertical; }
+  .schema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .schema-card { background: var(--bg-secondary); border: 0.5px solid var(--border-light); border-radius: var(--radius-md); padding: 10px 12px; }
+  .schema-name { font-size: 12px; font-weight: 500; color: var(--text-primary); margin-bottom: 6px; }
+  .schema-col { font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 0.5px solid var(--border-light); }
+  .schema-col:last-child { border-bottom: none; }
+  .col-type { font-family: var(--font-mono); font-size: 10px; background: var(--bg-primary); color: var(--text-secondary); padding: 1px 5px; border-radius: 4px; border: 0.5px solid var(--border-light); }
+  .log-container { background: var(--bg-secondary); border: 0.5px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-mono); font-size: 11px; line-height: 1.8; flex: 1; overflow-y: auto; }
+  .log-line { color: var(--text-secondary); }
+  .log-info { color: #185fa5; }
+  .log-success { color: #3b6d11; }
+  .log-query { color: #854f0b; }
+  .log-error { color: #a32d2d; }
+  .result-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .result-table th { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border-med); }
+  .result-table td { padding: 7px 8px; border-bottom: 0.5px solid var(--border-light); color: var(--text-primary); }
+  .result-table tr:hover td { background: var(--bg-secondary); }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .metric { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 10px 12px; }
+  .metric-val { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+  .metric-lbl { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .cap-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cap-label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; background: var(--bg-secondary); border: 0.5px solid var(--border-light); border-radius: var(--radius-md); padding: 6px 10px; color: var(--text-primary); }
+  .cap-label input { width: auto; accent-color: var(--text-primary); }
+  .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .action-btns button { background: var(--bg-primary); color: var(--text-primary); border: 0.5px solid var(--border-med); border-radius: var(--radius-md); padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: var(--font); }
+  .action-btns button:hover { background: var(--bg-secondary); }
+  .spinner-wrap { display: flex; align-items: center; gap: 8px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--border-med); border-top-color: var(--text-primary); border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .github-note { margin-top: 14px; background: var(--bg-info); border-radius: var(--radius-md); padding: 12px 16px; font-size: 12px; color: var(--text-info); border: 0.5px solid rgba(24,95,165,0.2); }
+  .github-note code { font-family: var(--font-mono); font-size: 11px; background: rgba(24,95,165,0.1); padding: 2px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <h1>AI Agents — Enterprise Database Builder</h1>
+  <p class="subtitle">Configure and run intelligent agents against your enterprise database infrastructure.</p>
+
+  <div class="app" id="app">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Agent registry</div>
+        <div class="sidebar-sub">4 agents configured</div>
+      </div>
+      <div class="agent-list">
+        <div class="agent-item active" onclick="selectAgent(0)">
+          <div class="agent-name"><span class="dot dot-green"></span>SQL Analyst</div>
+          <div class="agent-type">Query generation</div>
+        </div>
+        <div class="agent-item" onclick="selectAgent(1)">
+          <div class="agent-name"><span class="dot dot-green"></span>Data Validator</div>
+          <div class="agent-type">Schema enforcement</div>
+        </div>
+        <div class="agent-item" onclick="selectAgent(2)">
+          <div class="agent-name"><span class="dot dot-amber"></span>ETL Orchestrator</div>
+          <div class="agent-type">Pipeline automation</div>
+        </div>
+        <div class="agent-item" onclick="selectAgent(3)">
+          <div class="agent-name"><span class="dot dot-gray"></span>Report Builder</div>
+          <div class="agent-type">BI generation</div>
+        </div>
+      </div>
+      <button class="add-btn" onclick="alert('Connect to Claude API to add dynamic agents.')">+ new agent</button>
+    </div>
+
+    <div class="main">
+      <div class="toolbar">
+        <div class="toolbar-title" id="agent-title">SQL Analyst</div>
+        <span class="badge badge-green" id="agent-status">Active</span>
+        <div class="spinner-wrap">
+          <div class="spinner" id="spinner"></div>
+        </div>
+        <button class="run-btn" id="run-btn" onclick="runAgent()">Run agent</button>
+      </div>
+
+      <div class="content">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('config')">Configuration</button>
+          <button class="tab" onclick="switchTab('schema')">Schema</button>
+          <button class="tab" onclick="switchTab('logs')">Run logs</button>
+          <button class="tab" onclick="switchTab('results')">Results</button>
+        </div>
+
+        <div class="panel active" id="panel-config">
+          <div>
+            <div class="section-label">Agent details</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div><div class="field-label">Agent name</div><input type="text" id="f-name" value="SQL Analyst" /></div>
+              <div><div class="field-label">Database connection</div>
+                <select id="f-db">
+                  <option>PostgreSQL — prod-db-01.corp (port 5432)</option>
+                  <option>MySQL — analytics-db.corp (port 3306)</option>
+                  <option>Snowflake — acme.us-east-1</option>
+                  <option>BigQuery — project-id.dataset</option>
+                </select>
+              </div>
+              <div><div class="field-label">Agent role / system prompt</div>
+                <textarea id="f-prompt">You are a SQL expert agent. Given a natural language question, generate optimized SQL queries for the connected enterprise database. Always validate against the schema before executing. Return structured results with metadata.</textarea>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Capabilities</div>
+            <div class="cap-grid">
+              <label class="cap-label"><input type="checkbox" checked> Read queries</label>
+              <label class="cap-label"><input type="checkbox" checked> Schema inspection</label>
+              <label class="cap-label"><input type="checkbox"> Write access</label>
+              <label class="cap-label"><input type="checkbox" checked> Query optimization</label>
+              <label class="cap-label"><input type="checkbox"> DDL execution</label>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">Task input</div>
+            <div class="field-label">Natural language query</div>
+            <input type="text" id="f-task" value="Show top 10 customers by revenue in Q1 2025, grouped by region" />
+          </div>
+        </div>
+
+        <div class="panel" id="panel-schema">
+          <div class="section-label">Connected tables</div>
+          <div class="schema-grid">
+            <div class="schema-card"><div class="schema-name">customers</div>
+              <div class="schema-col"><span>id</span><span class="col-type">BIGINT PK</span></div>
+              <div class="schema-col"><span>name</span><span class="col-type">VARCHAR</span></div>
+              <div class="schema-col"><span>region</span><span class="col-type">VARCHAR</span></div>
+              <div class="schema-col"><span>created_at</span><span class="col-type">TIMESTAMP</span></div>
+            </div>
+            <div class="schema-card"><div class="schema-name">orders</div>
+              <div class="schema-col"><span>id</span><span class="col-type">BIGINT PK</span></div>
+              <div class="schema-col"><span>customer_id</span><span class="col-type">FK</span></div>
+              <div class="schema-col"><span>amount</span><span class="col-type">DECIMAL</span></div>
+              <div class="schema-col"><span>order_date</span><span class="col-type">DATE</span></div>
+            </div>
+            <div class="schema-card"><div class="schema-name">products</div>
+              <div class="schema-col"><span>id</span><span class="col-type">BIGINT PK</span></div>
+              <div class="schema-col"><span>name</span><span class="col-type">VARCHAR</span></div>
+              <div class="schema-col"><span>category</span><span class="col-type">VARCHAR</span></div>
+              <div class="schema-col"><span>price</span><span class="col-type">DECIMAL</span></div>
+            </div>
+            <div class="schema-card"><div class="schema-name">transactions</div>
+              <div class="schema-col"><span>id</span><span class="col-type">BIGINT PK</span></div>
+              <div class="schema-col"><span>order_id</span><span class="col-type">FK</span></div>
+              <div class="schema-col"><span>status</span><span class="col-type">ENUM</span></div>
+              <div class="schema-col"><span>processed_at</span><span class="col-type">TIMESTAMP</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-logs">
+          <div class="metrics">
+            <div class="metric"><div class="metric-val" id="m-runs">0</div><div class="metric-lbl">Runs today</div></div>
+            <div class="metric"><div class="metric-val" id="m-time">—</div><div class="metric-lbl">Last run (ms)</div></div>
+            <div class="metric"><div class="metric-val" id="m-rows">—</div><div class="metric-lbl">Rows returned</div></div>
+          </div>
+          <div class="log-container" id="log-box">
+            <div class="log-line">Waiting for agent run...</div>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-results">
+          <div class="section-label">Generated SQL</div>
+          <div class="log-container" style="height:auto;flex:none;">
+            <div class="log-query" id="sql-output" style="white-space:pre-wrap;">Run the agent to generate SQL...</div>
+          </div>
+          <div class="section-label" style="margin-top:4px;">Query results</div>
+          <div style="overflow-x:auto;border:0.5px solid var(--border-light);border-radius:var(--radius-md);">
+            <table class="result-table" id="result-table">
+              <thead><tr><th colspan="4" style="text-align:center;color:var(--text-secondary);">No results yet — run the agent first</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="github-note">
+    <strong>Deploy to GitHub Pages:</strong>
+    <code>git init</code> → <code>git add ai-agents-enterprise-db.html</code> → <code>git commit -m "AI agent DB builder"</code> → push to GitHub → enable Pages under Settings → Pages → Branch: main → /(root).
+    Your live URL will be <code>https://&lt;username&gt;.github.io/&lt;repo&gt;/ai-agents-enterprise-db.html</code>
+  </div>
+</div>
+
+<script>
+const agents = [
+  { name: "SQL Analyst", status: "Active", statusClass: "badge-green" },
+  { name: "Data Validator", status: "Active", statusClass: "badge-green" },
+  { name: "ETL Orchestrator", status: "Idle", statusClass: "badge-amber" },
+  { name: "Report Builder", status: "Inactive", statusClass: "badge-gray" },
+];
+
+let currentAgent = 0, runs = 0;
+
+function selectAgent(i) {
+  currentAgent = i;
+  document.querySelectorAll('.agent-item').forEach((el, j) => el.classList.toggle('active', j === i));
+  const a = agents[i];
+  document.getElementById('agent-title').textContent = a.name;
+  const sb = document.getElementById('agent-status');
+  sb.textContent = a.status;
+  sb.className = 'badge ' + a.statusClass;
+  document.getElementById('f-name').value = a.name;
+}
+
+function switchTab(tab) {
+  const tabs = ['config','schema','logs','results'];
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', tabs[i] === tab));
+  tabs.forEach(t => { const p = document.getElementById('panel-' + t); p.classList.toggle('active', t === tab); });
+}
+
+const sampleSQL = [
+  `SELECT c.name, c.region,\n  SUM(o.amount) AS total_revenue\nFROM customers c\nJOIN orders o ON c.id = o.customer_id\nWHERE o.order_date BETWEEN '2025-01-01' AND '2025-03-31'\nGROUP BY c.name, c.region\nORDER BY total_revenue DESC\nLIMIT 10;`,
+  `SELECT COUNT(*) AS record_count,\n  SUM(CASE WHEN id IS NULL THEN 1 ELSE 0 END) AS null_ids,\n  MIN(created_at), MAX(created_at)\nFROM customers\nWHERE region IS NOT NULL;`,
+  `INSERT INTO etl_log (pipeline, status, started_at)\nVALUES ('orders_sync', 'running', NOW());\n\nUPDATE products SET price = price * 1.05\nWHERE category = 'premium';`,
+  `SELECT region, COUNT(DISTINCT c.id) AS customers,\n  SUM(o.amount) AS revenue,\n  AVG(o.amount) AS avg_order\nFROM customers c JOIN orders o ON c.id = o.customer_id\nGROUP BY region ORDER BY revenue DESC;`
+];
+
+const sampleRows = [
+  [['Acme Corp','North America','$842,300'],['TechGlobal','EMEA','$761,500'],['DataSys Ltd','APAC','$698,200'],['CloudCo','North America','$543,100'],['FinTech Pro','EMEA','$502,800']],
+  [['customers','45,231','0','2022-01-03 / 2025-04-27'],['orders','312,540','2','2022-01-03 / 2025-04-28']],
+  [['orders_sync','running','2025-04-28 09:41:02',''],['premium','1,247 rows updated','','']],
+  [['North America','8,342','$2.1M','$251'],['EMEA','5,891','$1.7M','$289'],['APAC','4,103','$1.2M','$293']]
+];
+
+const sampleHeaders = [
+  ['Customer','Region','Revenue Q1 2025'],
+  ['Table','Row count','Null IDs','Date range'],
+  ['Pipeline','Status','Started at',''],
+  ['Region','Customers','Revenue','Avg order']
+];
+
+async function runAgent() {
+  const btn = document.getElementById('run-btn');
+  const spinner = document.getElementById('spinner');
+  btn.disabled = true; spinner.style.display = 'inline-block';
+  switchTab('logs');
+  const logBox = document.getElementById('log-box');
+  logBox.innerHTML = '';
+  runs++;
+  const startTime = Date.now();
+  const t = () => new Date().toLocaleTimeString();
+  const logLines = [
+    { cls: 'log-info', text: `[${t()}] Agent "${agents[currentAgent].name}" starting...` },
+    { cls: 'log-line', text: `[${t()}] Connecting to PostgreSQL — prod-db-01.corp:5432` },
+    { cls: 'log-success', text: `[${t()}] Connection established. Schema loaded (4 tables).` },
+    { cls: 'log-info', text: `[${t()}] Sending task to Claude AI engine...` },
+    { cls: 'log-line', text: `[${t()}] Generating optimized SQL from natural language input...` },
+    { cls: 'log-query', text: `[${t()}] SQL generated. Validating against schema constraints...` },
+    { cls: 'log-success', text: `[${t()}] Schema validation passed. Executing query...` },
+    { cls: 'log-success', text: `[${t()}] Query complete. ${sampleRows[currentAgent].length} rows returned in ${Date.now() - startTime}ms.` },
+  ];
+  for (const line of logLines) {
+    await new Promise(r => setTimeout(r, 300 + Math.random() * 200));
+    const d = document.createElement('div');
+    d.className = line.cls; d.textContent = line.text;
+    logBox.appendChild(d); logBox.scrollTop = logBox.scrollHeight;
+  }
+  const elapsed = Date.now() - startTime;
+  document.getElementById('m-runs').textContent = runs;
+  document.getElementById('m-time').textContent = elapsed;
+  document.getElementById('m-rows').textContent = sampleRows[currentAgent].length;
+  document.getElementById('sql-output').textContent = sampleSQL[currentAgent];
+  const tbl = document.getElementById('result-table');
+  const hdrs = sampleHeaders[currentAgent];
+  tbl.innerHTML = `<thead><tr>${hdrs.filter(Boolean).map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${sampleRows[currentAgent].map(r => `<tr>${r.filter(Boolean).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  btn.disabled = false; spinner.style.display = 'none';
+  setTimeout(() => switchTab('results'), 400);
+}
+</script>
+</body>
+</html>
